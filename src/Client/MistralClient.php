@@ -1,13 +1,22 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Survos\MistralBundle\Client;
 
 use SoftCreatR\MistralAI\MistralAI;
-use Survos\MistralBundle\Dto\{BatchJob, BatchRequest, BatchResult, FileObject, FileReference, OcrResult, SignedUrl};
-use Symfony\Contracts\Cache\{CacheInterface, ItemInterface};
+use Survos\MistralBundle\Dto\BatchJob;
+use Survos\MistralBundle\Dto\BatchRequest;
+use Survos\MistralBundle\Dto\BatchResult;
+use Survos\MistralBundle\Dto\FileObject;
+use Survos\MistralBundle\Dto\FileReference;
+use Survos\MistralBundle\Dto\OcrResult;
+use Survos\MistralBundle\Dto\SignedUrl;
+use Symfony\Component\Mime\Part\DataPart;
+use Symfony\Component\Mime\Part\Multipart\FormDataPart;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Component\Mime\Part\{DataPart, Multipart\FormDataPart};
 
 /** Typed document surface; the upstream SDK remains an implementation detail. */
 final readonly class MistralClient
@@ -20,17 +29,20 @@ final readonly class MistralClient
         #[\SensitiveParameter] private string $apiKey,
         private ?CacheInterface $cache = null,
         private int $metadataTtl = 60,
-    ) {}
+    ) {
+    }
 
     public function file(FileReference $file): FileObject
     {
         $this->assertOwner($file);
         $fetch = fn (): array => $this->call('retrieveFile', ['file_id' => $file->id]);
-        $data = $this->cache !== null && $this->metadataTtl > 0
+        $data = null !== $this->cache && $this->metadataTtl > 0
             ? $this->cache->get($this->cacheKey($file), function (ItemInterface $item) use ($fetch): array {
                 $item->expiresAfter($this->metadataTtl);
+
                 return $fetch();
             }) : $fetch();
+
         return FileObject::fromArray($this->name, $data);
     }
 
@@ -54,6 +66,7 @@ final readonly class MistralClient
             throw new \InvalidArgumentException('Expiry must be a positive number of hours.');
         }
         $data = $this->call('retrieveFileSignedUrl', ['file_id' => $file->id], ['expiry' => $expiryHours]);
+
         return new SignedUrl($file, $data['url']);
     }
 
@@ -73,6 +86,7 @@ final readonly class MistralClient
             'body' => $form->bodyToIterable(),
             'max_redirects' => 0,
         ]);
+
         return FileObject::fromArray($this->name, $response->toArray());
     }
 
@@ -102,18 +116,20 @@ final readonly class MistralClient
     public function ocrFile(FileReference $file, string $model = 'mistral-ocr-latest', array $options = []): OcrResult
     {
         $this->assertOwner($file);
+
         return $this->ocr(['type' => 'file', 'file_id' => $file->id], $model, $options);
     }
 
     /** @param list<FileReference> $inputFiles */
     public function createBatch(array $inputFiles, string $model, string $endpoint = '/v1/ocr', int $timeoutHours = 24, array $metadata = []): BatchJob
     {
-        if ($inputFiles === [] || $timeoutHours < 1) {
+        if ([] === $inputFiles || $timeoutHours < 1) {
             throw new \InvalidArgumentException('Batch input files and a positive timeout are required.');
         }
         foreach ($inputFiles as $file) {
             $this->assertOwner($file);
         }
+
         return BatchJob::fromArray($this->name, $this->call('createBatchJob', [], [
             'input_files' => array_map(fn (FileReference $file) => $file->id, $inputFiles),
             'model' => $model, 'endpoint' => $endpoint, 'timeout_hours' => $timeoutHours,
@@ -125,7 +141,7 @@ final readonly class MistralClient
     public function uploadBatchRequests(iterable $requests): FileObject
     {
         $path = tempnam(sys_get_temp_dir(), 'mistral-batch-');
-        if ($path === false) {
+        if (false === $path) {
             throw new \RuntimeException('Unable to allocate batch temporary file.');
         }
         $handle = fopen($path, 'wb');
@@ -141,6 +157,7 @@ final readonly class MistralClient
             }
             fclose($handle);
             $handle = null;
+
             return $this->upload($path, 'batch', 'requests.jsonl');
         } finally {
             if (is_resource($handle)) {
@@ -181,7 +198,7 @@ final readonly class MistralClient
                 }
                 $line = substr($buffer, 0, $end);
                 $buffer = substr($buffer, $end + 1);
-                if (trim($line) !== '') {
+                if ('' !== trim($line)) {
                     yield BatchResult::fromArray(json_decode($line, true, 512, JSON_THROW_ON_ERROR));
                 }
             }
@@ -189,7 +206,7 @@ final readonly class MistralClient
                 throw new \LengthException('Batch result line exceeds configured limit.');
             }
         }
-        if (trim($buffer) !== '') {
+        if ('' !== trim($buffer)) {
             yield BatchResult::fromArray(json_decode($buffer, true, 512, JSON_THROW_ON_ERROR));
         }
     }
@@ -202,6 +219,7 @@ final readonly class MistralClient
         if (!is_array($data)) {
             throw new \UnexpectedValueException('Expected a JSON object from Mistral.');
         }
+
         return $data;
     }
 
@@ -217,5 +235,8 @@ final readonly class MistralClient
         return 'mistral_file_'.hash('sha256', json_encode([$this->name, $this->baseUri, hash('sha256', $this->apiKey), $file->id], JSON_THROW_ON_ERROR));
     }
 
-    private function url(string $path): string { return rtrim($this->baseUri, '/').$path; }
+    private function url(string $path): string
+    {
+        return rtrim($this->baseUri, '/').$path;
+    }
 }

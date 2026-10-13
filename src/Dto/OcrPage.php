@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Survos\MistralBundle\Dto;
@@ -6,7 +7,9 @@ namespace Survos\MistralBundle\Dto;
 final readonly class OcrPage
 {
     /** @param list<OcrImage> $images */
-    public function __construct(public int $index, public string $markdown, public array $images, public ?PageDimensions $dimensions, public array $raw) {}
+    public function __construct(public int $index, public string $markdown, public array $images, public ?PageDimensions $dimensions, public array $raw)
+    {
+    }
 
     public static function fromArray(array $data): self
     {

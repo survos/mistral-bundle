@@ -1,14 +1,18 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Survos\MistralBundle;
 
-use Survos\Kit\{AbstractSurvosBundle, SurvosKitBundle};
-use Survos\MistralBundle\Client\{ClientFactory, MistralClient};
+use Survos\Kit\AbstractSurvosBundle;
+use Survos\Kit\SurvosKitBundle;
+use Survos\MistralBundle\Client\ClientFactory;
+use Survos\MistralBundle\Client\MistralClient;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Kernel\RequiredBundle;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 #[RequiredBundle(SurvosKitBundle::class)]
@@ -42,7 +46,7 @@ final class SurvosMistralBundle extends AbstractSurvosBundle
             $services->set($id, MistralClient::class)
                 ->factory([service(ClientFactory::class), 'create'])
                 ->args([$name, $options['api_key'], $options['base_uri'], $options['timeout'],
-                    $options['cache_pool'] === null ? null : service($options['cache_pool']), $options['metadata_ttl']]);
+                    null === $options['cache_pool'] ? null : service($options['cache_pool']), $options['metadata_ttl']]);
         }
         $services->alias(MistralClient::class, 'survos_mistral.client.'.$config['default_client']);
     }

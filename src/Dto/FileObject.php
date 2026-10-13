@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Survos\MistralBundle\Dto;
@@ -13,7 +14,8 @@ final readonly class FileObject
         public ?string $purpose,
         public ?int $createdAt,
         public array $raw,
-    ) {}
+    ) {
+    }
 
     public static function fromArray(string $client, array $data): self
     {

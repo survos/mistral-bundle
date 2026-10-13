@@ -1,18 +1,28 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Survos\MistralBundle\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Survos\MistralBundle\Client\ClientFactory;
-use Survos\MistralBundle\Dto\{BatchRequest, FileReference};
+use Survos\MistralBundle\Dto\BatchRequest;
+use Survos\MistralBundle\Dto\FileReference;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
-use Symfony\Component\HttpClient\{MockHttpClient, Response\MockResponse};
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 final class ClientTest extends TestCase
 {
-    private static function fileData(): array { return ['id' => 'f1', 'filename' => 'archive.pdf', 'bytes' => 123, 'mimetype' => 'application/pdf', 'purpose' => 'ocr']; }
-    private static function jobData(): array { return ['id' => 'j1', 'status' => 'SUCCESS', 'output_file' => 'out', 'total_requests' => 2, 'completed_requests' => 2]; }
+    private static function fileData(): array
+    {
+        return ['id' => 'f1', 'filename' => 'archive.pdf', 'bytes' => 123, 'mimetype' => 'application/pdf', 'purpose' => 'ocr'];
+    }
+
+    private static function jobData(): array
+    {
+        return ['id' => 'j1', 'status' => 'SUCCESS', 'output_file' => 'out', 'total_requests' => 2, 'completed_requests' => 2];
+    }
 
     public function testCustomEndpointTypedNestedOcrAndCurrentBatchContract(): void
     {
@@ -23,6 +33,7 @@ final class ClientTest extends TestCase
                 self::assertSame('http://127.0.0.1:5001/v1/ocr', $url);
                 self::assertSame(['type' => 'file', 'file_id' => 'f1'], $body['document']);
                 self::assertSame([0, 2], $body['pages']);
+
                 return new MockResponse(json_encode(['model' => 'local', 'pages' => [['index' => 0, 'markdown' => 'hello',
                     'dimensions' => ['width' => 100, 'height' => 200, 'dpi' => 300],
                     'images' => [['id' => 'img', 'top_left_x' => 1, 'top_left_y' => 2, 'bottom_right_x' => 3, 'bottom_right_y' => 4]],
@@ -33,6 +44,7 @@ final class ClientTest extends TestCase
             self::assertSame('/v1/ocr', $body['endpoint']);
             self::assertSame(24, $body['timeout_hours']);
             self::assertArrayNotHasKey('input_file_id', $body);
+
             return new MockResponse(json_encode(self::jobData()));
         });
         $client = (new ClientFactory($http))->create('local', 'local-token', 'http://127.0.0.1:5001/v1');
@@ -49,18 +61,21 @@ final class ClientTest extends TestCase
         $calls = 0;
         $http = new MockHttpClient(function ($method) use (&$calls) {
             ++$calls;
-            return new MockResponse(json_encode($method === 'DELETE' ? ['id' => 'f1', 'deleted' => true] : self::fileData()));
+
+            return new MockResponse(json_encode('DELETE' === $method ? ['id' => 'f1', 'deleted' => true] : self::fileData()));
         });
         $factory = new ClientFactory($http);
         $cache = new ArrayAdapter();
         $a = $factory->create('cloud', 'key-a', cache: $cache);
         $b = $factory->create('cloud', 'key-b', cache: $cache);
         $file = new FileReference('cloud', 'f1');
-        $a->file($file); $a->file($file);
+        $a->file($file);
+        $a->file($file);
         self::assertSame(1, $calls);
         $b->file($file);
         self::assertSame(2, $calls);
-        $a->deleteFile($file); $a->file($file);
+        $a->deleteFile($file);
+        $a->file($file);
         self::assertSame(4, $calls);
     }
 
@@ -73,7 +88,11 @@ final class ClientTest extends TestCase
 
     public function testBatchResultsSplitAcrossChunksAndWithoutFinalNewline(): void
     {
-        $body = (function () { yield '{"custom_id":"a","response":'; yield '{"status_code":200}}'."\n"; yield '{"custom_id":"b","error":{"message":"bad"}}'; })();
+        $body = (function () {
+            yield '{"custom_id":"a","response":';
+            yield '{"status_code":200}}'."\n";
+            yield '{"custom_id":"b","error":{"message":"bad"}}';
+        })();
         $client = (new ClientFactory(new MockHttpClient(new MockResponse($body))))->create('cloud', 'test');
         $results = iterator_to_array($client->batchResults(new FileReference('cloud', 'out')));
         self::assertSame('a', $results[0]->customId);
@@ -85,9 +104,12 @@ final class ClientTest extends TestCase
         $http = new MockHttpClient(function ($method, $url, $options) {
             self::assertSame('POST', $method);
             $body = '';
-            while (($chunk = $options['body'](8192)) !== '') { $body .= $chunk; }
+            while (($chunk = $options['body'](8192)) !== '') {
+                $body .= $chunk;
+            }
             self::assertStringContainsString('{"custom_id":"item-1","body":{"document":{"type":"document_url","document_url":"https:\/\/example.com\/a.pdf"}}}', $body);
             self::assertStringContainsString('batch', $body);
+
             return new MockResponse(json_encode(self::fileData()));
         });
         $client = (new ClientFactory($http))->create('cloud', 'test');
@@ -119,9 +141,12 @@ final class ClientTest extends TestCase
                 }
                 self::assertGreaterThan(64 * 1024 * 1024, $bytes);
                 self::assertLessThan(8 * 1024 * 1024, $max - $start);
+
                 return new MockResponse(json_encode(self::fileData()));
             });
             (new ClientFactory($http))->create('cloud', 'test')->upload($path);
-        } finally { unlink($path); }
+        } finally {
+            unlink($path);
+        }
     }
 }

@@ -1,11 +1,12 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Survos\MistralBundle\Tests;
 
 use PHPUnit\Framework\TestCase;
-use Survos\MistralBundle\SurvosMistralBundle;
 use Survos\MistralBundle\Client\MistralClient;
+use Survos\MistralBundle\SurvosMistralBundle;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpClient\MockHttpClient;
 

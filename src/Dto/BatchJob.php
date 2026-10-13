@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Survos\MistralBundle\Dto;
@@ -14,7 +15,8 @@ final readonly class BatchJob
         public int $totalRequests,
         public int $completedRequests,
         public array $raw,
-    ) {}
+    ) {
+    }
 
     public function isTerminal(): bool
     {
