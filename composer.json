@@ -6,7 +6,7 @@
   "require": {
     "php": "^8.5",
     "softcreatr/php-mistral-ai-sdk": "^5.1",
-    "survos/fetch-bundle": "^2.45",
+    "survos/fetch-bundle": "^2.41.9",
     "survos/kit-bundle": "^2.6",
     "nyholm/psr7": "^1.8",
     "symfony/cache-contracts": "^3.6|^4.0",
