@@ -80,9 +80,16 @@ final readonly class MistralClient
             throw new \InvalidArgumentException('Unsupported file purpose.');
         }
         $form = new FormDataPart(['purpose' => $purpose, 'file' => DataPart::fromPath($path, $filename)]);
+        // State the length. An iterable body is otherwise sent chunked, and a server behind a proxy that
+        // does not buffer (HTTP/2 to PHP-FPM) then sees no body and no file. Counting reads the file once
+        // more in bounded chunks and keeps nothing.
+        $length = 0;
+        foreach ($form->bodyToIterable() as $chunk) {
+            $length += \strlen($chunk);
+        }
         $response = $this->http->request('POST', $this->url('/files'), [
             'auth_bearer' => $this->apiKey,
-            'headers' => $form->getPreparedHeaders()->toArray(),
+            'headers' => array_merge($form->getPreparedHeaders()->toArray(), ['Content-Length: '.$length]),
             'body' => $form->bodyToIterable(),
             'max_redirects' => 0,
         ]);

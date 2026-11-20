@@ -1,6 +1,6 @@
 # Mistral Bundle
 
-Symfony integration around `softcreatr/php-mistral-ai-sdk` 3.0.1, with named clients and typed Files, OCR and Batch results. This is an initial client bundle, not a server implementing Mistral's API.
+Symfony integration around `softcreatr/php-mistral-ai-sdk` 5.1 (it needs PHP 8.5.12 or later on the 8.5 line), with named clients and typed Files, OCR and Batch results. This is an initial client bundle, not a server implementing Mistral's API. Mediary implements the Files and Batch contract at `/v1`, and the bundle's client has been run against it.
 
 ## Configuration
 

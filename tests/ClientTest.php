@@ -149,4 +149,27 @@ final class ClientTest extends TestCase
             unlink($path);
         }
     }
+
+    public function testUploadStatesItsLengthSoItIsNotSentChunked(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'mistral-test-');
+        file_put_contents($path, str_repeat('pdf ', 5000));
+        try {
+            $http = new MockHttpClient(function ($method, $url, $options) {
+                $bytes = 0;
+                while (($chunk = $options['body'](8192)) !== '') {
+                    $bytes += strlen($chunk);
+                }
+                $headers = array_map('strtolower', $options['headers']);
+                // A server behind an HTTP/2 proxy that does not buffer sees no body at all without a length.
+                self::assertContains('content-length: '.$bytes, $headers);
+                self::assertNotContains('transfer-encoding: chunked', $headers);
+
+                return new MockResponse(json_encode(self::fileData()));
+            });
+            (new ClientFactory($http))->create('cloud', 'test')->upload($path);
+        } finally {
+            unlink($path);
+        }
+    }
 }
