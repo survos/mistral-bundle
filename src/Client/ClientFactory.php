@@ -6,6 +6,7 @@ namespace Survos\MistralBundle\Client;
 
 use Nyholm\Psr7\Factory\Psr17Factory;
 use SoftCreatR\MistralAI\MistralAI;
+use Survos\FetchBundle\Http\WipProxyHttpClient;
 use Survos\MistralBundle\Transport\EndpointClient;
 use Symfony\Component\HttpClient\Psr18Client;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -19,7 +20,9 @@ final readonly class ClientFactory
 
     public function create(string $name, #[\SensitiveParameter] string $apiKey, string $baseUri = 'https://api.mistral.ai/v1', float $timeout = 120, ?CacheInterface $cache = null, int $metadataTtl = 60): MistralClient
     {
-        $http = $this->http->withOptions(['timeout' => $timeout, 'max_redirects' => 0]);
+        // A *.wip base URI is only reachable through the Symfony CLI proxy; fetch-bundle decides that.
+        $http = new WipProxyHttpClient($this->http, $baseUri);
+        $http = $http->withOptions(['timeout' => $timeout, 'max_redirects' => 0]);
         $factory = new Psr17Factory();
         $transport = new EndpointClient(new Psr18Client($http, $factory, $factory), $baseUri);
         $sdk = new MistralAI($factory, $factory, $factory, $transport, $apiKey);
